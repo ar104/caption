@@ -1,2 +1,2 @@
 # caption
-Show, attend and tell.
+Implement show, attend and tell - neural image captioning.
