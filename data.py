@@ -1,3 +1,5 @@
+import tensorflow as tf
+import numpy as np
 def build_annotations_vocab(fname):
     """ 
     Build an annotations vocabulary for the flickr8k dataset.
@@ -63,6 +65,20 @@ def load_annotations_tokens(fname, stop_token):
             image_to_tokens[items[0]] = [int(k) for k in items[1:]]
             image_to_tokens[items[0]].append(stop_token)
     return image_to_tokens
+
+def pad(s, max_caption_length, stop_symbol):
+    """Pad out sequence of tokens s to max_caption_length using stop symbol."""
+    l = s.copy()
+    l.extend([stop_symbol] * (max_caption_length - len(l)))
+    return np.asarray(l)
+
+def load_image(fname):
+    """Load a single image and return the array with an added batch dimension."""
+    image = tf.keras.preprocessing.image.load_img(fname, target_size = (224, 224))
+    img_array = tf.keras.preprocessing.image.img_to_array(image)
+    img_array = tf.keras.applications.vgg16.preprocess_input(img_array)
+    img_array = img_array.reshape(1, img_array.shape[0], img_array.shape[1], img_array.shape[2])
+    return img_array
 
 # Quick test
 def quick_test():
