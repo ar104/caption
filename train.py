@@ -3,6 +3,7 @@ import numpy as np
 import model
 import data
 
+
 def make_vocab():
     vocab, image_to_tokens = data.build_annotations_vocab('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.token.txt')
     with open('/datadrive/flickr8k/Flickr8k.vocab.txt', 'w') as f:
@@ -45,9 +46,11 @@ def train():
     # print(dataset.cardinality().numpy())
     val_dataset = dataset.take(200)
     train_dataset = dataset.skip(200)
-    
-    caption_model.fit(train_dataset, epochs=1, validation_data=val_dataset, steps_per_epoch=10)
-    caption_model.save('caption_model.hd5')
+    tb_callback = tf.keras.callbacks.TensorBoard('./logs', update_freq=1)
+    print(tf.python.client.device_lib.list_local_devices())
+    for i in range(10):
+        caption_model.fit(train_dataset, epochs=1, callbacks = [tb_callback], validation_data=val_dataset)
+        caption_model.save('caption_model.{}.hd5'.format(i))
     
         
 
