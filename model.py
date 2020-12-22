@@ -33,24 +33,24 @@ def quick_test():
     def display_results(img_array, input_tokens, output_tokens, index):
         print([token_to_word[int(t[index])] for t in input_tokens])
         print([token_to_word[np.argmax(output_tokens[index][i])] for i in range(output_tokens.shape[1])])
-    vocab, image_to_tokens = data.build_annotations_vocab('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.token.txt')
-    with open('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.vocab.txt', 'w') as f:
+    vocab, image_to_tokens = data.build_annotations_vocab('/datadrive/flickr8k/Flickr8k.token.txt')
+    with open('/datadrive/flickr8k/Flickr8k.vocab.txt', 'w') as f:
         for w, index in vocab.items():
             f.write('{},{}\n'.format(w, index))
-    with open('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.image_to_tokens.txt', 'w') as f:
+    with open('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', 'w') as f:
         for w, tokens in image_to_tokens.items():
             f.write('{}'.format(w))
             for t in tokens:
                 f.write(',{}'.format(t))
             f.write('\n')
-    token_to_word = data.load_annotations_vocab('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.vocab.txt')
+    token_to_word = data.load_annotations_vocab('/datadrive/flickr8k/Flickr8k.vocab.txt')
     vocab_size=len(token_to_word)
     stop_symbol=vocab_size - 1
-    image_to_tokens = data.load_annotations_tokens('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.image_to_tokens.txt', stop_symbol)
+    image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     model = make_model(512, 8, max_caption_length, vocab_size)
-    img_array1 = data.load_image('/home/aroy/notebooks/experiments/Flickr8k_Dataset/Flicker8k_Dataset/1001773457_577c3a7d70.jpg')
-    img_array2 = data.load_image('/home/aroy/notebooks/experiments/Flickr8k_Dataset/Flicker8k_Dataset/760180310_3c6bd4fd1f.jpg')
+    img_array1 = data.load_image('/datadrive/flickr8k/Flicker8k_Dataset/1001773457_577c3a7d70.jpg')
+    img_array2 = data.load_image('/datadrive/flickr8k/Flicker8k_Dataset/760180310_3c6bd4fd1f.jpg')
     img_array = np.concatenate([img_array1, img_array2], axis=0)
     token_array1 = data.pad(image_to_tokens['1001773457_577c3a7d70.jpg'], max_caption_length, stop_symbol)
     token_array2 = data.pad(image_to_tokens['760180310_3c6bd4fd1f.jpg'], max_caption_length, stop_symbol)

@@ -5,10 +5,10 @@ import data
 
 def make_vocab():
     vocab, image_to_tokens = data.build_annotations_vocab('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.token.txt')
-    with open('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.vocab.txt', 'w') as f:
+    with open('/datadrive/flickr8k/Flickr8k.vocab.txt', 'w') as f:
         for w, index in vocab.items():
             f.write('{},{}\n'.format(w, index))
-    with open('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.image_to_tokens.txt', 'w') as f:
+    with open('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', 'w') as f:
         for w, tokens in image_to_tokens.items():
             f.write('{}'.format(w))
             for t in tokens:
@@ -19,13 +19,13 @@ def make_vocab():
 
 def train():
     print('Executing eagerly:{}'.format(tf.executing_eagerly()))
-    token_to_word = data.load_annotations_vocab('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.vocab.txt')
+    token_to_word = data.load_annotations_vocab('/datadrive/flickr8k/Flickr8k.vocab.txt')
     vocab_size=len(token_to_word)
     stop_symbol=vocab_size - 1
-    image_to_tokens = data.load_annotations_tokens('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.image_to_tokens.txt', stop_symbol)
+    image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(512, 8, max_caption_length, vocab_size)
-    dataset = tf.data.Dataset.list_files('/home/aroy/notebooks/experiments/Flickr8k_Dataset/Flicker8k_Dataset/*.jpg')
+    dataset = tf.data.Dataset.list_files('/datadrive/flickr8k/Flicker8k_Dataset/*.jpg')
     def load_image(fname):
         img_path = bytes.decode(fname.numpy())
         img_array = tf.convert_to_tensor(data.load_image(img_path))
@@ -42,7 +42,12 @@ def train():
     #for one in dataset:
     #    print(one)
     #    break
-    caption_model.fit(dataset, epochs=1)
+    # print(dataset.cardinality().numpy())
+    val_dataset = dataset.take(200)
+    train_dataset = dataset.skip(200)
+    
+    caption_model.fit(train_dataset, epochs=1, validation_data=val_dataset, steps_per_epoch=10)
+    caption_model.save('caption_model.hd5')
     
         
 

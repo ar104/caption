@@ -82,18 +82,18 @@ def load_image(fname):
 
 # Quick test
 def quick_test():
-    vocab, image_to_tokens = build_annotations_vocab('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.token.txt')
-    with open('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.vocab.txt', 'w') as f:
+    vocab, image_to_tokens = build_annotations_vocab('/datadrive/flickr8k/Flickr8k.token.txt')
+    with open('/datadrive/flickr8k/Flickr8k.vocab.txt', 'w') as f:
         for w, index in vocab.items():
             f.write('{},{}\n'.format(w, index))
-    with open('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.image_to_tokens.txt', 'w') as f:
+    with open('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', 'w') as f:
         for w, tokens in image_to_tokens.items():
             f.write('{}'.format(w))
             for t in tokens:
                 f.write(',{}'.format(t))
             f.write('\n')
-    token_to_word = load_annotations_vocab('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.vocab.txt')
-    image_to_tokens = load_annotations_tokens('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.image_to_tokens.txt', len(token_to_word) - 1)
+    token_to_word = load_annotations_vocab('/datadrive/flickr8k/Flickr8k.vocab.txt')
+    image_to_tokens = load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', len(token_to_word) - 1)
     for t in image_to_tokens['1001773457_577c3a7d70.jpg']:
         print(token_to_word[t])
 
