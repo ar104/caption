@@ -27,6 +27,7 @@ def train():
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(512, 8, max_caption_length, vocab_size)
     dataset = tf.data.Dataset.list_files('/datadrive/flickr8k/Flicker8k_Dataset/*.jpg')
+    dataset = dataset.shuffle(96)
     def load_image(fname):
         img_path = bytes.decode(fname.numpy())
         img_array = tf.convert_to_tensor(data.load_image(img_path))
