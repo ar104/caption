@@ -38,22 +38,19 @@ def train():
         return ret
     
     dataset = dataset.map(lambda x: tf.py_function(load_image, [x], [tf.float32] + [tf.int64]*max_caption_length))
-    dataset = dataset.batch(4)
+    dataset = dataset.batch(32)
     dataset = dataset.map(lambda *x: (x, tf.concat(x[2:], axis=-1)))
     #for one in dataset:
     #    print(one)
     #    break
     # print(dataset.cardinality().numpy())
-    val_dataset = dataset.take(200)
-    train_dataset = dataset.skip(200)
+    val_dataset = dataset.take(6)
+    train_dataset = dataset.skip(6)
     print(tf.python.client.device_lib.list_local_devices())
-    tb_callback = tf.keras.callbacks.TensorBoard('./logs', update_freq=1)
     caption_model.fit(train_dataset, epochs=2,
-                      callbacks = [tb_callback, tf.keras.callbacks.ModelCheckpoint(filepath='caption_model.{epoch:02d}-{val_loss:.2f}.h5')],
-                      validation_data=val_dataset, steps_per_epoch=10, validation_steps=10)
-    #caption_model.save('caption_model.{}.hd5'.format(i))
-    
-        
+                      callbacks = [tf.keras.callbacks.TensorBoard('./logs', update_freq=1),
+                                   tf.keras.callbacks.ModelCheckpoint(filepath='caption_model.{epoch:02d}-{val_loss:.2f}.h5')],
+                      validation_data=val_dataset)
 
 if __name__ == '__main__':
     #make_vocab()
