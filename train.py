@@ -46,11 +46,12 @@ def train():
     # print(dataset.cardinality().numpy())
     val_dataset = dataset.take(200)
     train_dataset = dataset.skip(200)
-    tb_callback = tf.keras.callbacks.TensorBoard('./logs', update_freq=1)
     print(tf.python.client.device_lib.list_local_devices())
-    for i in range(10):
-        caption_model.fit(train_dataset, epochs=1, callbacks = [tb_callback], validation_data=val_dataset)
-        caption_model.save('caption_model.{}.hd5'.format(i))
+    tb_callback = tf.keras.callbacks.TensorBoard('./logs', update_freq=1)
+    caption_model.fit(train_dataset, epochs=2,
+                      callbacks = [tb_callback, tf.keras.callbacks.ModelCheckpoint(filepath='caption_model.{epoch:02d}-{val_loss:.2f}.h5')],
+                      validation_data=val_dataset, steps_per_epoch=10, validation_steps=10)
+    #caption_model.save('caption_model.{}.hd5'.format(i))
     
         
 
