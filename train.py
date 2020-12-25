@@ -18,8 +18,8 @@ def make_vocab():
 
     print('Vocab built.')
 
-def train():
-    print('Executing eagerly:{}'.format(tf.executing_eagerly()))
+def preprocess(train_fname, test_fname):
+    print('Preprocessing data. Executing eagerly:{}'.format(tf.executing_eagerly()))
     token_to_word = data.load_annotations_vocab('/datadrive/flickr8k/Flickr8k.vocab.txt')
     vocab_size=len(token_to_word)
     stop_symbol=vocab_size - 1
@@ -41,12 +41,18 @@ def train():
     dataset = dataset.map(lambda x: tf.py_function(load_image, [x], [tf.float32] + [tf.int64]*max_caption_length))
     dataset = dataset.batch(32)
     dataset = dataset.map(lambda *x: (x, tf.concat(x[2:], axis=-1)))
-    #for one in dataset:
-    #    print(one)
-    #    break
-    # print(dataset.cardinality().numpy())
     val_dataset = dataset.take(6)
     train_dataset = dataset.skip(6)
+
+    for one in train_dataset:
+        print(one)
+        break
+    # print(dataset.cardinality().numpy())
+
+    
+    
+def train():
+    
     print(tf.python.client.device_lib.list_local_devices())
     caption_model.fit(train_dataset, epochs=2,
                       callbacks = [tf.keras.callbacks.TensorBoard('./logs', update_freq=1),
@@ -54,5 +60,6 @@ def train():
                       validation_data=val_dataset)
 
 if __name__ == '__main__':
+    preprocess('blah', 'blah') 
     #make_vocab()
-    train()
+    #train()
