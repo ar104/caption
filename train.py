@@ -71,8 +71,11 @@ def train():
     def ds_gen(fp_image, fp_caption):
         def generator():
             while True:
-                data_image = np.load(fp_image, allow_pickle=True)
-                data_caption = np.load(fp_caption, allow_pickle=True)
+                try:
+                    data_image = np.load(fp_image, allow_pickle=True)
+                    data_caption = np.load(fp_caption, allow_pickle=True)
+                except EOFerror as e:
+                    return
                 yield (data_image, data_caption)
         return generator
         
@@ -89,6 +92,8 @@ def train():
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0]] + tf.split(x[1], max_caption_length, axis=-1)), x[1][1:]]))
     train_dataset = train_dataset.batch(32)
     val_dataset = val_dataset.batch(32)
+    train_dataset = train_dataset.prefetch(2)
+    val_dataset = val_dataset.prefetch(2)
 
     caption_model.fit(train_dataset, epochs=2,
                       callbacks = [tf.keras.callbacks.TensorBoard('./logs', update_freq=1),
