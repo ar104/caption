@@ -72,12 +72,13 @@ def pad(s, max_caption_length, stop_symbol):
     l.extend([stop_symbol] * (max_caption_length - len(l)))
     return np.asarray(l)
 
-def load_image(fname):
+def load_image(fname, include_batch=True):
     """Load a single image and return the array with an added batch dimension."""
     image = tf.keras.preprocessing.image.load_img(fname, target_size = (224, 224))
     img_array = tf.keras.preprocessing.image.img_to_array(image)
     img_array = tf.keras.applications.vgg16.preprocess_input(img_array)
-    img_array = img_array.reshape(1, img_array.shape[0], img_array.shape[1], img_array.shape[2])
+    if include_batch:
+        img_array = img_array.reshape(1, img_array.shape[0], img_array.shape[1], img_array.shape[2])
     return img_array
 
 # Quick test
