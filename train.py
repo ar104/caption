@@ -74,7 +74,7 @@ def train():
                 try:
                     data_image = np.load(fp_image, allow_pickle=True)
                     data_caption = np.load(fp_caption, allow_pickle=True)
-                except EOFerror as e:
+                except EOFError as e:
                     return
                 yield (data_image, data_caption)
         return generator
