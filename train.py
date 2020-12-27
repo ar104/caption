@@ -64,25 +64,23 @@ def train():
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(512, 8, max_caption_length, vocab_size)
     print(tf.python.client.device_lib.list_local_devices())
-    train_image_fp = open('blah_train_image', 'rb')
-    train_caption_fp = open('blah_train_caption', 'rb')
-    test_image_fp = open('blah_test_image', 'rb')
-    test_caption_fp = open('blah_test_caption', 'rb')
-    def ds_gen(fp_image, fp_caption):
+    def ds_gen(file_image, file_caption):
         def generator():
+            fp_image = open(file_image, 'rb')
+            fp_caption = open(file_caption, 'rb')
             while True:
                 try:
                     data_image = np.load(fp_image, allow_pickle=True)
                     data_caption = np.load(fp_caption, allow_pickle=True)
-                except EOFError as e:
+                except (OSError, IOError):
                     return
                 yield (data_image, data_caption)
-        return generator
+        return generator()
         
-    train_dataset = tf.data.Dataset.from_generator(ds_gen(train_image_fp, train_caption_fp),
+    train_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_train_image', 'blah_train_caption'),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
-    val_dataset = tf.data.Dataset.from_generator(ds_gen(test_image_fp, test_caption_fp),
+    val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption'),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
     train_dataset = train_dataset.map(lambda *x: tuple([tuple([x[0]] + tf.split(x[1], max_caption_length, axis=-1)), x[1][1:]]))
