@@ -14,10 +14,11 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size):
     token_inputs = [tf.keras.Input(shape=(1,)) for _ in range(max_caption_length)]
     input_embedding = tf.keras.layers.Embedding(input_dim=vocab_size, output_dim = embedding_size)
     output_net = tf.keras.layers.Dense(units = vocab_size, activation = 'softmax')
-    input_transformation = tf.keras.layers.Dense(units=lstm_units)
+    attention_projection = tf.keras.layers.Dense(units=512)
     output_symbols = []
     for i in range(max_caption_length - 1):
-        attention_input = attention([tf.keras.layers.Reshape(target_shape=(1, 512))(h_init), conv_features])
+        attention_query = attention_projection(h_init)
+        attention_input = attention([tf.keras.layers.Reshape(target_shape=(1, 512))(attention_query), conv_features])
         token_input = input_embedding(token_inputs[i])
         token_input  = tf.keras.layers.Reshape(target_shape=(1, embedding_size))(token_input)
         lstm_input = tf.keras.layers.concatenate([attention_input, token_input])

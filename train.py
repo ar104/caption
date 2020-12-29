@@ -55,14 +55,13 @@ def preprocess(train_fname, test_fname):
     # print(dataset.cardinality().numpy())
 
     
-    
 def train():
     token_to_word = data.load_annotations_vocab('/datadrive/flickr8k/Flickr8k.vocab.txt')
     vocab_size=len(token_to_word)
     stop_symbol=vocab_size - 1
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
-    caption_model = model.make_model(512, 8, max_caption_length, vocab_size)
+    caption_model = model.make_model(1024, 100, max_caption_length, vocab_size)
     print(tf.python.client.device_lib.list_local_devices())
     def ds_gen(file_image, file_caption):
         def generator():
@@ -93,12 +92,51 @@ def train():
     train_dataset = train_dataset.prefetch(2)
     val_dataset = val_dataset.prefetch(2)
 
-    caption_model.fit(train_dataset, epochs=2,
+    caption_model.fit(train_dataset, epochs=5,
                       callbacks = [tf.keras.callbacks.TensorBoard('./logs', update_freq=1),
                                    tf.keras.callbacks.ModelCheckpoint(filepath='caption_model.{epoch:02d}-{val_loss:.2f}.h5')],
                       validation_data=val_dataset)
 
+def check_perf():
+    token_to_word = data.load_annotations_vocab('/datadrive/flickr8k/Flickr8k.vocab.txt')
+    vocab_size=len(token_to_word)
+    stop_symbol=vocab_size - 1
+    image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
+    max_caption_length=max([len(t) for t in image_to_tokens.values()])
+    caption_model = model.make_model(512, 8, max_caption_length, vocab_size)
+    print(tf.python.client.device_lib.list_local_devices())
+    def ds_gen(file_image, file_caption):
+        def generator():
+            fp_image = open(file_image, 'rb')
+            fp_caption = open(file_caption, 'rb')
+            while True:
+                try:
+                    data_image = np.load(fp_image, allow_pickle=True)
+                    data_caption = np.load(fp_caption, allow_pickle=True)
+                except (OSError, IOError):
+                    return
+                yield (data_image, data_caption)
+        return generator()
+    caption_model.load_weights('caption_model.05-2.23.h5')
+    val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption'),
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
+    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0]] + tf.split(x[1], max_caption_length, axis=-1)), x[1][1:]]))
+    val_dataset = val_dataset.batch(1)
+    for ex in val_dataset:
+        #print(ex[1])
+        for i in range(max_caption_length - 1):
+            sym = ex[1].numpy()[0][i]
+            print(sym, token_to_word[sym])
+        r = caption_model.predict(ex)
+        #print(r)
+        for i in range(max_caption_length - 1):
+            sym = np.argmax(r[0][i])
+            print(sym, r[0][i][sym], token_to_word[sym])
+        break
+    
+    
 if __name__ == '__main__':
     #preprocess('blah_train', 'blah_test') 
     #make_vocab()
     train()
+    #check_perf()
