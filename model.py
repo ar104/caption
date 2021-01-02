@@ -1,6 +1,8 @@
 import tensorflow as tf
 import numpy as np
 import data
+import queue
+import math
 
 def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropout_rate=0.0):
     vgg_model = tf.keras.applications.vgg16.VGG16()
@@ -32,6 +34,52 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
     final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
 
+def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, vocab_size, beam_width):
+    def update_candidate(q, candidate, added_symbol, candidate_prob):
+        if q.qsize() < beam_width:
+            ccopy = candidate.copy()
+            if added_symbol is not None:
+                ccopy.append(added_symbol)
+            q.put((candidate_prob, ccopy))
+        else:
+            alternate_prob, alternate = q.get()
+            if alternate_prob < candidate_prob:
+                ccopy = candidate.copy()
+                if added_symbol is not None:
+                 ccopy.append(added_symbol)
+                q.put((candidate_prob, ccopy))
+            else:
+                q.put((alternate_prob, alternate))
+
+    candidates = queue.PriorityQueue()
+    candidates.put((math.log(1.0), [start_symbol]))
+    length_increment = 1
+    while length_increment > 0:
+        new_candidates = queue.PriorityQueue()
+        max_candidate_length = max([len(l[1]) for l in candidates.queue])
+        while candidates.qsize() > 0:
+            candidate_prob, candidate = candidates.get()
+            candidate_len = len(candidate)
+            if candidate_len == max_caption_length or candidate[-1] == stop_symbol:
+                update_candidate(new_candidates, candidate, None, candidate_prob)
+            else:
+                padded_candidate = [np.asarray([[c]]) for c in candidate]
+                padded_candidate.extend([np.asarray([[stop_symbol]])] *(max_caption_length - len(candidate)))
+                #print(padded_candidate)
+                predict_out = model.predict([image, padded_candidate], batch_size=1)
+                #print('OK')
+                for i in range(vocab_size):
+                    prob = predict_out[0][candidate_len - 1][i]
+                    new_candidate_prob = math.log(prob) + candidate_prob
+                    update_candidate(new_candidates, candidate, i, new_candidate_prob)
+        #print('PROCESSED')
+        candidates = new_candidates
+        length_increment = max([len(l[1]) for l in candidates.queue]) - max_candidate_length
+        #print(candidates.queue)
+    results = [e for e in candidates.queue]
+    results.sort(reverse=True, key=lambda x:x[0])
+    return results
+    
 # Quick Test
 def quick_test():
     def display_results(img_array, input_tokens, output_tokens, index):
@@ -67,7 +115,14 @@ def quick_test():
     model.fit(test_input, test_output, batch_size=2, epochs=500)
     predict_output = model.predict(test_input, batch_size=2)
     display_results(img_array, token_array, predict_output, 0)
-
-
+    print('--------')
+    r = beam_search(model, img_array1, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
+    for entry in r[0:2]:
+        print([token_to_word[t] for t in entry[1]])
+    print('--------')
+    r = beam_search(model, img_array2, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
+    for entry in r[0:2]:
+        print([token_to_word[t] for t in entry[1]])
+    
 if __name__ == '__main__':
     quick_test()

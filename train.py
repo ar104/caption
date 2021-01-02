@@ -53,7 +53,6 @@ def preprocess(train_fname, test_fname):
     save_items(val_dataset, test_image_fp, test_caption_fp)
     save_items(train_dataset, train_image_fp, train_caption_fp)
     # print(dataset.cardinality().numpy())
-
     
 def train():
     token_to_word = data.load_annotations_vocab('/datadrive/flickr8k/Flickr8k.vocab.txt')
@@ -117,7 +116,7 @@ def check_perf():
                     return
                 yield (data_image, data_caption)
         return generator()
-    caption_model.load_weights('caption_model.166-1.22.h5')
+    caption_model.load_weights('caption_model.184-1.17.h5')
     val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption'),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0]] + tf.split(x[1], max_caption_length, axis=-1)), x[1][1:]]))
