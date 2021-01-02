@@ -116,7 +116,7 @@ def check_perf():
                     return
                 yield (data_image, data_caption)
         return generator()
-    caption_model.load_weights('caption_model.184-1.17.h5')
+    caption_model.load_weights('caption_model.242-1.12.h5')
     val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption'),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0]] + tf.split(x[1], max_caption_length, axis=-1)), x[1][1:]]))
@@ -137,6 +137,9 @@ def check_perf():
             #print(sym, r[0][i][sym], token_to_word[sym])
             out = out + token_to_word[sym] + ' '
         print(out)
+        r = model.beam_search(caption_model, ex[0][0], max_caption_length, 0, stop_symbol, vocab_size, beam_width=5)
+        for entry in r[0:5]:
+            print([token_to_word[t] for t in entry[1]])
         print('------------------------')
         #break
     
