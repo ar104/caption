@@ -31,7 +31,7 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
         lstm_input = tf.keras.layers.concatenate([attention_input, token_input])
         _, h_init, c_init = lstm(inputs=lstm_input, initial_state=[h_init, c_init])
         output_driver = tf.keras.layers.Add()([token_input, hidden_state_output_net(h_init), attention_output_net(attention_input)])
-        output_symbols.append(tf.keras.layers.Reshape(target_shape=(1, vocab_size))(output_net(output_driver)))
+        output_symbols.append(tf.keras.layers.Reshape(target_shape=(1, vocab_size))(final_output_net(output_driver)))
     
     attention_sum = tf.keras.layers.Add()(attention_scores_list)
     all_ones = tf.constant(1., shape=(196,), dtype=tf.float32)
