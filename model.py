@@ -9,15 +9,15 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
     base_model = tf.keras.Model(inputs=vgg_model.input, outputs=tf.keras.layers.Reshape(target_shape=(196, 512))(vgg_model.get_layer('block5_conv3').output))
     base_model.trainable = False
     conv_features = base_model(vgg_model.input)
-    h_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.keras.layers.Flatten()(conv_features))
-    h_init = tf.keras.layers.Dropout(rate=dropout_rate)(h_init)
-    c_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.keras.layers.Flatten()(conv_features))
-    c_init = tf.keras.layers.Dropout(rate=dropout_rate)(c_init)
+    h_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.math.reduce_mean(conv_features, axis=-2))
+    c_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.math.reduce_mean(conv_features, axis=-2))
     lstm = tf.keras.layers.LSTM(units=lstm_units, return_state=True)
     attention = tf.keras.layers.Attention()
     token_inputs = [tf.keras.Input(shape=(1,)) for _ in range(max_caption_length)]
     input_embedding = tf.keras.layers.Embedding(input_dim=vocab_size, output_dim = embedding_size)
-    output_net = tf.keras.layers.Dense(units = vocab_size, activation = 'softmax')
+    final_output_net = tf.keras.layers.Dense(units = vocab_size, activation = 'softmax')
+    hidden_state_output_net = tf.keras.layers.Dense(units = embedding_size, activation = None)
+    attention_output_net = tf.keras.layers.Dense(units = embedding_size, activation = None)
     attention_projection = tf.keras.layers.Dense(units=512)
     output_symbols = []
     attention_scores_list = []
@@ -29,8 +29,9 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
         token_input = input_embedding(token_inputs[i])
         token_input  = tf.keras.layers.Reshape(target_shape=(1, embedding_size))(token_input)
         lstm_input = tf.keras.layers.concatenate([attention_input, token_input])
-        output, h_init, c_init = lstm(inputs=lstm_input, initial_state=[h_init, c_init])
-        output_symbols.append(tf.keras.layers.Reshape(target_shape=(1, vocab_size))(tf.keras.layers.Dropout(rate=dropout_rate)(output_net(output))))
+        _, h_init, c_init = lstm(inputs=lstm_input, initial_state=[h_init, c_init])
+        output_driver = tf.keras.layers.Add()([token_input, hidden_state_output_net(h_init), attention_output_net(attention_input)])
+        output_symbols.append(tf.keras.layers.Reshape(target_shape=(1, vocab_size))(output_net(output_driver)))
     
     attention_sum = tf.keras.layers.Add()(attention_scores_list)
     all_ones = tf.constant(1., shape=(196,), dtype=tf.float32)
