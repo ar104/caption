@@ -25,24 +25,23 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
         attention_query = attention_projection(h_init)
         attention_query = tf.keras.layers.Dropout(rate=dropout_rate)(attention_query)
         attention_input, attention_scores = attention([tf.keras.layers.Reshape(target_shape=(1, 512))(attention_query), conv_features], return_attention_scores=True)
-        attention_scores_list.append(attention_scores)
+        attention_scores_list.append(tf.keras.layers.Reshape(target_shape=(196,))(attention_scores))
         token_input = input_embedding(token_inputs[i])
         token_input  = tf.keras.layers.Reshape(target_shape=(1, embedding_size))(token_input)
         lstm_input = tf.keras.layers.concatenate([attention_input, token_input])
         output, h_init, c_init = lstm(inputs=lstm_input, initial_state=[h_init, c_init])
         output_symbols.append(tf.keras.layers.Reshape(target_shape=(1, vocab_size))(tf.keras.layers.Dropout(rate=dropout_rate)(output_net(output))))
-    all_ones = tf.keras.initializers.Constant(1.)(shape=(1, 196))
-    attention_sum = tf.keras.layers.Sum()(attention_scores_list)
-    attention_diff = tf.keras.layers.Subtract()([all_ones, attention_sum])
-    double_stochastic_loss = tf.keras.layers.Reshape(target_shape=(1,))(tf.keras.layers.dot([attention_diff, attention_diff], axis=-1))
-
-    def custom_loss(y_true, y_pred):
-        return tf.keras.losses.sparse_categorical_cross_entropy(y_true=y_true, y_pred=y_pred) + stochastic_loss_lambda*double_stochastic_loss
-   
-
+    
+    attention_sum = tf.keras.layers.Add()(attention_scores_list)
+    all_ones = tf.constant(1., shape=(196,), dtype=tf.float32)
+    attention_diff = tf.math.subtract(all_ones, attention_sum)
+    stochastic_loss_term = tf.math.reduce_sum(tf.math.square(attention_diff), axis=-1)
+    stochastic_loss_multiplier = tf.constant(stochastic_loss_lambda, shape=(1,), dtype=tf.float32)
+    stochastic_loss = tf.math.multiply(stochastic_loss_term, stochastic_loss_multiplier)
     output_array = tf.keras.layers.concatenate(output_symbols, axis = -2)
     final_model = tf.keras.Model(inputs=[base_model.input] + token_inputs, outputs=output_array)
-    final_model.compile(optimizer='Adam', loss=custom_loss)
+    final_model.add_loss(tf.reduce_sum(stochastic_loss))
+    final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
 
 def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, vocab_size, beam_width):
