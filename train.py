@@ -92,15 +92,15 @@ def train():
     val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption'),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
-    train_dataset = train_dataset.map(lambda *x: tuple([tuple([x[0]] + tf.split(x[1], max_caption_length, axis=-1)), x[1][1:]]))
+    train_dataset = train_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
     #for v in train_dataset:
     #    print(v)
     #    exit(-1)
-    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0]] + tf.split(x[1], max_caption_length, axis=-1)), x[1][1:]]))
+    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
     train_dataset = train_dataset.batch(32)
     val_dataset = val_dataset.batch(32)
-    train_dataset = train_dataset.prefetch(2)
-    val_dataset = val_dataset.prefetch(2)
+    train_dataset = train_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
+    val_dataset = val_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
 
     caption_model.fit(train_dataset, epochs=500,
                       callbacks = [tf.keras.callbacks.TensorBoard('./logs', update_freq=1),
@@ -130,7 +130,7 @@ def check_perf():
     caption_model.load_weights('caption_model.269-1.12.h5')
     val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption'),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
-    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0]] + tf.split(x[1], max_caption_length, axis=-1)), x[1][1:]]))
+    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
     val_dataset = val_dataset.batch(1)
     for ex in val_dataset:
         #print(ex[1])
