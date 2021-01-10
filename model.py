@@ -13,7 +13,7 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
     c_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.math.reduce_mean(conv_features, axis=-2))
     lstm = tf.keras.layers.LSTM(units=lstm_units, return_state=True)
     attention = tf.keras.layers.Attention()
-    token_inputs = [tf.keras.Input(shape=(1,)) for _ in range(max_caption_length)]
+    token_inputs = tf.keras.Input(shape=(max_caption_length,))
     input_embedding = tf.keras.layers.Embedding(input_dim=vocab_size, output_dim = embedding_size)
     final_output_net = tf.keras.layers.Dense(units = vocab_size, activation = 'softmax')
     hidden_state_output_net = tf.keras.layers.Dense(units = embedding_size, activation = None)
@@ -26,7 +26,7 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
         attention_query = tf.keras.layers.Dropout(rate=dropout_rate)(attention_query)
         attention_input, attention_scores = attention([tf.keras.layers.Reshape(target_shape=(1, 512))(attention_query), conv_features], return_attention_scores=True)
         attention_scores_list.append(tf.keras.layers.Reshape(target_shape=(196,))(attention_scores))
-        token_input = input_embedding(token_inputs[i])
+        token_input = input_embedding(token_inputs[:, i:i+1])
         token_input  = tf.keras.layers.Reshape(target_shape=(1, embedding_size))(token_input)
         lstm_input = tf.keras.layers.concatenate([attention_input, token_input])
         _, h_init, c_init = lstm(inputs=lstm_input, initial_state=[h_init, c_init])
@@ -40,7 +40,7 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
     stochastic_loss_multiplier = tf.constant(stochastic_loss_lambda, shape=(1,), dtype=tf.float32)
     stochastic_loss = tf.math.multiply(stochastic_loss_term, stochastic_loss_multiplier)
     output_array = tf.keras.layers.concatenate(output_symbols, axis = -2)
-    final_model = tf.keras.Model(inputs=[base_model.input] + token_inputs, outputs=output_array)
+    final_model = tf.keras.Model(inputs=[base_model.input, token_inputs], outputs=output_array)
     final_model.add_loss(tf.reduce_sum(stochastic_loss))
     final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
@@ -115,14 +115,11 @@ def quick_test():
     img_array1 = data.load_image('/datadrive/flickr8k/Flicker8k_Dataset/1001773457_577c3a7d70.jpg')
     img_array2 = data.load_image('/datadrive/flickr8k/Flicker8k_Dataset/760180310_3c6bd4fd1f.jpg')
     img_array = np.concatenate([img_array1, img_array2], axis=0)
-    token_array1 = data.pad(image_to_tokens['1001773457_577c3a7d70.jpg'], max_caption_length, stop_symbol)
-    token_array2 = data.pad(image_to_tokens['760180310_3c6bd4fd1f.jpg'], max_caption_length, stop_symbol)
-    token_array = []
-    for i in range(len(token_array1)):
-        token_array.append(np.asarray([[token_array1[i]],[token_array2[i]]]))
-    test_input = [img_array] + token_array
-    test_output_list = token_array[1:]
-    test_output = np.concatenate(test_output_list, axis = -1)
+    token_array1 = np.asarray(data.pad(image_to_tokens['1001773457_577c3a7d70.jpg'], max_caption_length, stop_symbol))
+    token_array2 = np.asarray(data.pad(image_to_tokens['760180310_3c6bd4fd1f.jpg'], max_caption_length, stop_symbol))
+    token_array = np.stack([token_array1, token_array2], axis=0)
+    test_input = [img_array, token_array]
+    test_output = token_array[:, 1:]
     model.fit(test_input, test_output, batch_size=2, epochs=500)
     predict_output = model.predict(test_input, batch_size=2)
     display_results(img_array, token_array, predict_output, 0)
