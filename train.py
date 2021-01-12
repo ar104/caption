@@ -29,9 +29,10 @@ def preprocess(train_fname, test_fname):
     caption_model = model.make_model(512, 8, max_caption_length, vocab_size)
     dataset = tf.data.Dataset.list_files('/datadrive/flickr8k/Flicker8k_Dataset/*.jpg')
     dataset = dataset.shuffle(96)
+    base_model = model.make_vgg16_model()
     def load_image(fname):
         img_path = bytes.decode(fname.numpy())
-        img_array = tf.convert_to_tensor(data.load_image(img_path, include_batch=False))
+        img_array = tf.convert_to_tensor(data.load_image(img_path, include_batch=True))
         img_name = img_path.split('/')[-1]
         token_list = data.pad(image_to_tokens[img_name], max_caption_length, stop_symbol)
         ret = [img_array]
@@ -39,9 +40,14 @@ def preprocess(train_fname, test_fname):
             ret.append(tf.convert_to_tensor(np.asarray([t])))
         return ret
     def save_items(ds, fp_image, fp_caption):
+        saved = 0
         for one in ds:
-            np.save(fp_image, one[0], allow_pickle=True)
+            conv_features = base_model.predict(one[0], batch_size=1)
+            conv_features = np.reshape(conv_features, newshape = (196, 512))
+            np.save(fp_image, conv_features, allow_pickle=True)
             np.save(fp_caption, one[1], allow_pickle=True)
+            saved += 1
+            print("Saved = {}".format(saved))
     
     dataset = dataset.map(lambda x: tf.py_function(load_image, [x], [tf.float32] + [tf.int64]*max_caption_length))
     dataset = dataset.map(lambda *x: (x[0], tf.concat(x[1:], axis=-1)))
@@ -87,10 +93,10 @@ def train():
         return lambda: generator()
         
     train_dataset = tf.data.Dataset.from_generator(ds_gen('blah_train_image', 'blah_train_caption'),
-                                                   output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
     val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption'),
-                                                   output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
     train_dataset = train_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
     #for v in train_dataset:
@@ -129,7 +135,7 @@ def check_perf():
         return generator()
     caption_model.load_weights('caption_model.269-1.12.h5')
     val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption'),
-                                                   output_types=(tf.float32, tf.int64), output_shapes=((224, 224, 3), (max_caption_length,)))
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
     val_dataset = val_dataset.batch(1)
     for ex in val_dataset:
