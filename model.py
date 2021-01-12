@@ -4,11 +4,14 @@ import data
 import queue
 import math
 
-def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropout_rate=0.0, stochastic_loss_lambda=0.005):
+def make_vgg16_model():
     vgg_model = tf.keras.applications.vgg16.VGG16()
     base_model = tf.keras.Model(inputs=vgg_model.input, outputs=tf.keras.layers.Reshape(target_shape=(196, 512))(vgg_model.get_layer('block5_conv3').output))
     base_model.trainable = False
-    conv_features = base_model(vgg_model.input)
+    return base_model
+
+def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropout_rate=0.0, stochastic_loss_lambda=0.005):
+    conv_features = tf.keras.layers.Input(shape=(196, 512))
     h_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.math.reduce_mean(conv_features, axis=-2))
     c_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.math.reduce_mean(conv_features, axis=-2))
     lstm = tf.keras.layers.LSTM(units=lstm_units, return_state=True)
@@ -40,7 +43,7 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
     stochastic_loss_multiplier = tf.constant(stochastic_loss_lambda, shape=(1,), dtype=tf.float32)
     stochastic_loss = tf.math.multiply(stochastic_loss_term, stochastic_loss_multiplier)
     output_array = tf.keras.layers.concatenate(output_symbols, axis = -2)
-    final_model = tf.keras.Model(inputs=[base_model.input, token_inputs], outputs=output_array)
+    final_model = tf.keras.Model(inputs=[conv_features, token_inputs], outputs=output_array)
     final_model.add_loss(tf.reduce_sum(stochastic_loss))
     final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
@@ -77,7 +80,7 @@ def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, voc
                 padded_candidate = [np.asarray([[c]]) for c in candidate]
                 padded_candidate.extend([np.asarray([[stop_symbol]])] *(max_caption_length - len(candidate)))
                 #print(padded_candidate)
-                predict_out = model.predict([image, padded_candidate], batch_size=1)
+                predict_out = model.predict([image, np.concatenate(padded_candidate, axis=-1)], batch_size=1)
                 #print('OK')
                 for i in range(vocab_size):
                     prob = predict_out[0][candidate_len - 1][i]
@@ -93,7 +96,7 @@ def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, voc
     
 # Quick Test
 def quick_test():
-    def display_results(img_array, input_tokens, output_tokens, index):
+    def display_results(input_tokens, output_tokens, index):
         print([token_to_word[int(t[index])] for t in input_tokens])
         print([token_to_word[np.argmax(output_tokens[index][i])] for i in range(output_tokens.shape[1])])
     vocab, image_to_tokens = data.build_annotations_vocab('/datadrive/flickr8k/Flickr8k.token.txt')
@@ -111,24 +114,27 @@ def quick_test():
     stop_symbol=vocab_size - 1
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
-    model = make_model(512, 8, max_caption_length, vocab_size)
+    base_model = make_vgg16_model()
     img_array1 = data.load_image('/datadrive/flickr8k/Flicker8k_Dataset/1001773457_577c3a7d70.jpg')
+    conv_features1 = base_model.predict(img_array1, batch_size=1)
     img_array2 = data.load_image('/datadrive/flickr8k/Flicker8k_Dataset/760180310_3c6bd4fd1f.jpg')
-    img_array = np.concatenate([img_array1, img_array2], axis=0)
+    conv_features2 = base_model.predict(img_array2, batch_size=1)
+    conv_features = np.concatenate([conv_features1, conv_features2], axis=0)
+    model = make_model(512, 8, max_caption_length, vocab_size)
     token_array1 = np.asarray(data.pad(image_to_tokens['1001773457_577c3a7d70.jpg'], max_caption_length, stop_symbol))
     token_array2 = np.asarray(data.pad(image_to_tokens['760180310_3c6bd4fd1f.jpg'], max_caption_length, stop_symbol))
     token_array = np.stack([token_array1, token_array2], axis=0)
-    test_input = [img_array, token_array]
+    test_input = [conv_features, token_array]
     test_output = token_array[:, 1:]
     model.fit(test_input, test_output, batch_size=2, epochs=500)
     predict_output = model.predict(test_input, batch_size=2)
-    display_results(img_array, token_array, predict_output, 0)
+    display_results(token_array, predict_output, 0)
     print('--------')
-    r = beam_search(model, img_array1, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
+    r = beam_search(model, conv_features1, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
     for entry in r[0:2]:
         print([token_to_word[t] for t in entry[1]])
     print('--------')
-    r = beam_search(model, img_array2, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
+    r = beam_search(model, conv_features2, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
     for entry in r[0:2]:
         print([token_to_word[t] for t in entry[1]])
     
