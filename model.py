@@ -44,15 +44,17 @@ def make_model(lstm_units, embedding_size, stop_symbol, max_caption_length, voca
     stochastic_loss = tf.math.multiply(stochastic_loss_term, stochastic_loss_multiplier)
     output_array = tf.keras.layers.concatenate(output_symbols, axis = -2)
     stop_array_numpy = np.zeros((1, vocab_size))
-    stop_array_numpy[1, stop_symbol] = 1.0
-    stop_array = tf.convert_to_tensor(stop_array_numpy)
-    masked_output_array = tf.where(tf.math.equals(token_inputs, tf.constant(stop_symbol)), stop_array, output_array)
+    stop_array_numpy[0, stop_symbol] = 1.0
+    stop_array = tf.convert_to_tensor(stop_array_numpy, dtype=tf.float32)
+    mask_array = tf.reshape(tf.math.equal(token_inputs[:,1:], tf.constant(stop_symbol, dtype=tf.float32)), [-1, max_caption_length - 1, 1])
+    masked_output_array = tf.where(mask_array, stop_array, output_array)
     final_model = tf.keras.Model(inputs=[conv_features, token_inputs], outputs=masked_output_array)
     final_model.add_loss(tf.reduce_sum(stochastic_loss))
     final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
 
 def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, vocab_size, beam_width):
+    epsilon = 1E-9
     def update_candidate(q, candidate, added_symbol, candidate_prob):
         if q.qsize() < beam_width:
             ccopy = candidate.copy()
@@ -88,7 +90,7 @@ def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, voc
                 #print('OK')
                 for i in range(vocab_size):
                     prob = predict_out[0][candidate_len - 1][i]
-                    new_candidate_prob = math.log(prob) + candidate_prob
+                    new_candidate_prob = math.log(prob + epsilon) + candidate_prob
                     update_candidate(new_candidates, candidate, i, new_candidate_prob)
         #print('PROCESSED')
         candidates = new_candidates
@@ -101,7 +103,7 @@ def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, voc
 # Quick Test
 def quick_test():
     def display_results(input_tokens, output_tokens, index):
-        print([token_to_word[int(t[index])] for t in input_tokens])
+        print([token_to_word[int(input_tokens[index][i])] for i in range(input_tokens.shape[-1])])
         print([token_to_word[np.argmax(output_tokens[index][i])] for i in range(output_tokens.shape[1])])
     vocab, image_to_tokens = data.build_annotations_vocab('/datadrive/flickr8k/Flickr8k.token.txt')
     with open('/datadrive/flickr8k/Flickr8k.vocab.txt', 'w') as f:
@@ -124,7 +126,7 @@ def quick_test():
     img_array2 = data.load_image('/datadrive/flickr8k/Flicker8k_Dataset/760180310_3c6bd4fd1f.jpg')
     conv_features2 = base_model.predict(img_array2, batch_size=1)
     conv_features = np.concatenate([conv_features1, conv_features2], axis=0)
-    model = make_model(512, 8, max_caption_length, vocab_size)
+    model = make_model(512, 8, stop_symbol, max_caption_length, vocab_size)
     token_array1 = np.asarray(data.pad(image_to_tokens['1001773457_577c3a7d70.jpg'], max_caption_length, stop_symbol))
     token_array2 = np.asarray(data.pad(image_to_tokens['760180310_3c6bd4fd1f.jpg'], max_caption_length, stop_symbol))
     token_array = np.stack([token_array1, token_array2], axis=0)
@@ -134,12 +136,14 @@ def quick_test():
     predict_output = model.predict(test_input, batch_size=2)
     display_results(token_array, predict_output, 0)
     print('--------')
-    r = beam_search(model, conv_features1, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
-    for entry in r[0:2]:
+    display_results(token_array, predict_output, 1)
+    print('--------')
+    r = beam_search(model, conv_features1, max_caption_length, 0, stop_symbol, vocab_size, beam_width=4)
+    for entry in r[0:4]:
         print([token_to_word[t] for t in entry[1]])
     print('--------')
-    r = beam_search(model, conv_features2, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
-    for entry in r[0:2]:
+    r = beam_search(model, conv_features2, max_caption_length, 0, stop_symbol, vocab_size, beam_width=4)
+    for entry in r[0:4]:
         print([token_to_word[t] for t in entry[1]])
     
 if __name__ == '__main__':
