@@ -10,7 +10,7 @@ def make_vgg16_model():
     base_model.trainable = False
     return base_model
 
-def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropout_rate=0.0, stochastic_loss_lambda=0.005):
+def make_model(lstm_units, embedding_size, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.0, stochastic_loss_lambda=0.005):
     conv_features = tf.keras.layers.Input(shape=(196, 512))
     h_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.math.reduce_mean(conv_features, axis=-2))
     c_init = tf.keras.layers.Dense(units=lstm_units, activation = 'relu')(tf.math.reduce_mean(conv_features, axis=-2))
@@ -43,7 +43,11 @@ def make_model(lstm_units, embedding_size, max_caption_length, vocab_size, dropo
     stochastic_loss_multiplier = tf.constant(stochastic_loss_lambda, shape=(1,), dtype=tf.float32)
     stochastic_loss = tf.math.multiply(stochastic_loss_term, stochastic_loss_multiplier)
     output_array = tf.keras.layers.concatenate(output_symbols, axis = -2)
-    final_model = tf.keras.Model(inputs=[conv_features, token_inputs], outputs=output_array)
+    stop_array_numpy = np.zeros((1, vocab_size))
+    stop_array_numpy[1, stop_symbol] = 1.0
+    stop_array = tf.convert_to_tensor(stop_array_numpy)
+    masked_output_array = tf.where(tf.math.equals(token_inputs, tf.constant(stop_symbol)), stop_array, output_array)
+    final_model = tf.keras.Model(inputs=[conv_features, token_inputs], outputs=masked_output_array)
     final_model.add_loss(tf.reduce_sum(stochastic_loss))
     final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
