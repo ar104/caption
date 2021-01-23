@@ -46,7 +46,7 @@ def make_model(lstm_units, embedding_size, stop_symbol, max_caption_length, voca
     stop_array_numpy = np.zeros((1, vocab_size))
     stop_array_numpy[0, stop_symbol] = 1.0
     stop_array = tf.convert_to_tensor(stop_array_numpy, dtype=tf.float32)
-    mask_array = tf.reshape(tf.math.equal(token_inputs[:,1:], tf.constant(stop_symbol, dtype=tf.float32)), [-1, max_caption_length - 1, 1])
+    mask_array = tf.reshape(tf.math.equal(token_inputs[:,:-1], tf.constant(stop_symbol, dtype=tf.float32)), [-1, max_caption_length - 1, 1])
     masked_output_array = tf.where(mask_array, stop_array, output_array)
     final_model = tf.keras.Model(inputs=[conv_features, token_inputs], outputs=masked_output_array)
     final_model.add_loss(tf.reduce_sum(stochastic_loss))
@@ -54,7 +54,7 @@ def make_model(lstm_units, embedding_size, stop_symbol, max_caption_length, voca
     return final_model
 
 def beam_search(model, image, token_to_word, max_caption_length, start_symbol, stop_symbol, vocab_size, beam_width):
-    epsilon = 1E-9
+    epsilon = 1E-19
     def update_candidate(q, candidate, added_symbol, candidate_prob):
         if q.qsize() < beam_width:
             ccopy = candidate.copy()
@@ -138,12 +138,12 @@ def quick_test():
     print('--------')
     display_results(token_array, predict_output, 1)
     print('--------')
-    r = beam_search(model, conv_features1, token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=4)
-    for entry in r[0:4]:
+    r = beam_search(model, conv_features1, token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
+    for entry in r[0:2]:
         print([token_to_word[t] for t in entry[1]])
     print('--------')
-    r = beam_search(model, conv_features2, token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=4)
-    for entry in r[0:4]:
+    r = beam_search(model, conv_features2, token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
+    for entry in r[0:2]:
         print([token_to_word[t] for t in entry[1]])
     
 if __name__ == '__main__':
