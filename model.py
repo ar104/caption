@@ -53,7 +53,7 @@ def make_model(lstm_units, embedding_size, stop_symbol, max_caption_length, voca
     final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
 
-def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, vocab_size, beam_width):
+def beam_search(model, image, token_to_word, max_caption_length, start_symbol, stop_symbol, vocab_size, beam_width):
     epsilon = 1E-9
     def update_candidate(q, candidate, added_symbol, candidate_prob):
         if q.qsize() < beam_width:
@@ -84,7 +84,7 @@ def beam_search(model, image, max_caption_length, start_symbol, stop_symbol, voc
                 update_candidate(new_candidates, candidate, None, candidate_prob)
             else:
                 padded_candidate = [np.asarray([[c]]) for c in candidate]
-                padded_candidate.extend([np.asarray([[stop_symbol]])] *(max_caption_length - len(candidate)))
+                padded_candidate.extend([np.asarray([[start_symbol]])] *(max_caption_length - len(candidate)))
                 #print(padded_candidate)
                 predict_out = model.predict([image, np.concatenate(padded_candidate, axis=-1)], batch_size=1)
                 #print('OK')
@@ -138,11 +138,11 @@ def quick_test():
     print('--------')
     display_results(token_array, predict_output, 1)
     print('--------')
-    r = beam_search(model, conv_features1, max_caption_length, 0, stop_symbol, vocab_size, beam_width=4)
+    r = beam_search(model, conv_features1, token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=4)
     for entry in r[0:4]:
         print([token_to_word[t] for t in entry[1]])
     print('--------')
-    r = beam_search(model, conv_features2, max_caption_length, 0, stop_symbol, vocab_size, beam_width=4)
+    r = beam_search(model, conv_features2, token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=4)
     for entry in r[0:4]:
         print([token_to_word[t] for t in entry[1]])
     
