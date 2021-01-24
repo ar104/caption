@@ -26,7 +26,6 @@ def preprocess(train_fname, test_fname):
     stop_symbol=vocab_size - 1
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
-    caption_model = model.make_model(512, 8, max_caption_length, vocab_size)
     dataset = tf.data.Dataset.list_files('/datadrive/flickr8k/Flicker8k_Dataset/*.jpg')
     dataset = dataset.shuffle(96)
     base_model = model.make_vgg16_model()
@@ -68,7 +67,7 @@ def train():
     stop_symbol=vocab_size - 1
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
-    caption_model = model.make_model(1024, 100, max_caption_length, vocab_size, dropout_rate=0.3)
+    caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
     def ds_gen(file_image, file_caption):
         data_images = []
         data_captions = []
@@ -120,7 +119,7 @@ def check_perf():
     stop_symbol=vocab_size - 1
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
-    caption_model = model.make_model(1024, 100, max_caption_length, vocab_size, dropout_rate=0.3)
+    caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
     def ds_gen(file_image, file_caption):
         def generator():
             fp_image = open(file_image, 'rb')
@@ -162,7 +161,7 @@ def check_perf():
     
     
 if __name__ == '__main__':
-    #preprocess('blah_train', 'blah_test') 
+    preprocess('blah_train', 'blah_test') 
     #make_vocab()
-    train()
+    #train()
     #check_perf()
