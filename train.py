@@ -63,7 +63,7 @@ def preprocess(train_fname, test_fname):
     # print(dataset.cardinality().numpy())
 
 
-def ds_gen(file_image, file_caption):
+def ds_gen(file_image, file_caption, max_caption_length, stop_symbol):
     data_images = []
     data_captions = []
     def preload(max_count=64):
@@ -74,7 +74,7 @@ def ds_gen(file_image, file_caption):
             try:
                 data_images.append(np.load(fp_image, allow_pickle=True))
                 captions = np.load(fp_caption, allow_pickle=True)
-                padded_captions = np.pad(captions, max_caption_length, constant_values=stop_symbol)
+                padded_captions = np.pad(captions, pad_width=(0, max_caption_length - captions.shape[0]), constant_values=stop_symbol)
                 data_captions.append(padded_captions)
             except (OSError, IOError):
                 break
@@ -96,10 +96,10 @@ def train():
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
-    train_dataset = tf.data.Dataset.from_generator(ds_gen('blah_train_image', 'blah_train_caption'),
+    train_dataset = tf.data.Dataset.from_generator(ds_gen('blah_train_image', 'blah_train_caption', max_caption_length, stop_symbol),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
-    val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption'),
+    val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
     train_dataset = train_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
@@ -126,7 +126,7 @@ def check_perf():
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
     caption_model.load_weights('caption_model.269-1.12.h5')
-    val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption'),
+    val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
     val_dataset = val_dataset.batch(1)
@@ -154,7 +154,7 @@ def check_perf():
     
     
 if __name__ == '__main__':
-    preprocess('blah_train', 'blah_test') 
+    #preprocess('blah_train', 'blah_test') 
     #make_vocab()
-    #train()
+    train()
     #check_perf()
