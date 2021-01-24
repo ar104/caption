@@ -42,7 +42,7 @@ def preprocess(train_fname, test_fname):
     def save_items(ds, fp_image, fp_caption):
         saved = 0
         for one in ds:
-            caption_len = one[0]
+            caption_len = one[0][0]
             conv_features = base_model.predict(one[1], batch_size=1)
             conv_features = np.reshape(conv_features, newshape = (196, 512))
             np.save(fp_image, conv_features, allow_pickle=True)
