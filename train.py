@@ -63,22 +63,44 @@ def preprocess(train_fname, test_fname):
     # print(dataset.cardinality().numpy())
 
 
-def ds_gen(file_image, file_caption, max_caption_length, stop_symbol):
+def ds_gen(file_image, file_caption, max_caption_length, stop_symbol, batch_size):
+    data_buffers = {}
     data_images = []
     data_captions = []
+
     def preload(max_count=64):
+        # Preload loads the data and batches so that each batch has a uniform caption length.
         fp_image = open(file_image, 'rb')
         fp_caption = open(file_caption, 'rb')
         count = 0
+        def shiftbuf(buflist):
+            data_captions.append(np.stack([item[0] for items in buflist], axis=0))
+            data_images.append(np.stack([item[1] for items in buflist], axis=0))
+            buflist = []
         while count != max_count:
             try:
-                data_images.append(np.load(fp_image, allow_pickle=True))
+                image = np.load(fp_image, allow_pickle=True)
                 captions = np.load(fp_caption, allow_pickle=True)
-                padded_captions = np.pad(captions, pad_width=(0, max_caption_length - captions.shape[0]), constant_values=stop_symbol)
+                bufkey = captions.shape[0]
+                if bufkey not in data_buffers:
+                    data_buffers[bufkey] = []
+                if len(data_buffers[bufkey]) == batch_size:
+                    shiftbuf(data_buffers[bufkey])
+                else:
+                    padded_captions = np.pad(captions, pad_width=(0, max_caption_length - captions.shape[0]), constant_values=stop_symbol)
+                    data_buffers[bufkey].append((padded_captions, image))
                 data_captions.append(padded_captions)
             except (OSError, IOError):
                 break
             count += 1
+        sponge = []
+        for bukey in data_buffers:
+            while len(data_buffers[bufkey]) > 0:
+                sponge.append(data_buffers[bufkey].pop())
+                if len(sponge) == batch_size:
+                    shiftbuf(sponge)
+        # Note: Drops remaining items in sponge that don't make a full batch.
+            
     def generator():
         for (im, cap) in zip(data_images, data_captions):
             yield (im, cap)
@@ -96,19 +118,17 @@ def train():
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
-    train_dataset = tf.data.Dataset.from_generator(ds_gen('blah_train_image', 'blah_train_caption', max_caption_length, stop_symbol),
-                                                   output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
+    train_dataset = tf.data.Dataset.from_generator(ds_gen('blah_train_image', 'blah_train_caption', max_caption_length, stop_symbol, 32),
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((32, 196, 512), (32, max_caption_length)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
-    val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol),
-                                                   output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
+    val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol, 32),
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((32, 196, 512), (32, max_caption_length)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
-    train_dataset = train_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
+    train_dataset = train_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
     #for v in train_dataset:
     #    print(v)
     #    exit(-1)
-    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
-    train_dataset = train_dataset.batch(32)
-    val_dataset = val_dataset.batch(32)
+    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
     train_dataset = train_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
     val_dataset = val_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
 
@@ -126,10 +146,9 @@ def check_perf():
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
     caption_model.load_weights('caption_model.269-1.12.h5')
-    val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol),
-                                                   output_types=(tf.float32, tf.int64), output_shapes=((196, 512), (max_caption_length,)))
-    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][1:]]))
-    val_dataset = val_dataset.batch(1)
+    val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol, 1),
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((1, 196, 512), (1, max_caption_length)))
+    val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
     for ex in val_dataset:
         #print(ex[1])
         out  = ''
