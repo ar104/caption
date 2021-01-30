@@ -76,7 +76,7 @@ def ds_gen(file_image, file_caption, max_caption_length, stop_symbol, batch_size
         def shiftbuf(buflist):
             data_captions.append(np.stack([item[0] for item in buflist], axis=0))
             data_images.append(np.stack([item[1] for item in buflist], axis=0))
-            buflist = []
+        
         while count != max_count:
             try:
                 image = np.load(fp_image, allow_pickle=True)
@@ -86,6 +86,7 @@ def ds_gen(file_image, file_caption, max_caption_length, stop_symbol, batch_size
                     data_buffers[bufkey] = []
                 if len(data_buffers[bufkey]) == batch_size:
                     shiftbuf(data_buffers[bufkey])
+                    data_buffers[bufkey] = []
                 padded_captions = np.pad(captions, pad_width=(0, max_caption_length - captions.shape[0]), constant_values=stop_symbol)
                 data_buffers[bufkey].append((padded_captions, image))
             except (OSError, IOError):
@@ -97,8 +98,10 @@ def ds_gen(file_image, file_caption, max_caption_length, stop_symbol, batch_size
                 sponge.append(data_buffers[bufkey].pop())
                 if len(sponge) == batch_size:
                     shiftbuf(sponge)
+                    sponge = []
         if len(sponge) == batch_size:
             shiftbuf(sponge)
+            sponge = []
         # Note: Drops remaining items in sponge that don't make a full batch.
             
     def generator():
