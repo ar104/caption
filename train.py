@@ -74,8 +74,8 @@ def ds_gen(file_image, file_caption, max_caption_length, stop_symbol, batch_size
         fp_caption = open(file_caption, 'rb')
         count = 0
         def shiftbuf(buflist):
-            data_captions.append(np.stack([item[0] for items in buflist], axis=0))
-            data_images.append(np.stack([item[1] for items in buflist], axis=0))
+            data_captions.append(np.stack([item[0] for item in buflist], axis=0))
+            data_images.append(np.stack([item[1] for item in buflist], axis=0))
             buflist = []
         while count != max_count:
             try:
@@ -132,9 +132,9 @@ def train():
     train_dataset = train_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
     val_dataset = val_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
 
-    caption_model.fit(train_dataset, epochs=500,
+    caption_model.fit(train_dataset, epochs=200,
                       callbacks = [tf.keras.callbacks.TensorBoard('./logs', update_freq=1),
-                                   tf.keras.callbacks.ModelCheckpoint(filepath='caption_model.{epoch:02d}-{val_loss:.2f}.h5', monitor='val_loss', verbose=1, save_best_only=True)],
+                                   tf.keras.callbacks.ModelCheckpoint(filepath='caption_model.h5', monitor='val_loss', verbose=1, save_best_only=True)],
                       validation_data=val_dataset)
 
 def check_perf():
