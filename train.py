@@ -148,8 +148,8 @@ def check_perf():
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
-    caption_model.load_weights('caption_model.269-1.12.h5')
-    val_dataset = tf.data.Dataset.from_generator(lambda: ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol, 1),
+    caption_model.load_weights('caption_model.h5')
+    val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol, 1),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((1, 196, 512), (1, max_caption_length)))
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
     for ex in val_dataset:
@@ -161,14 +161,14 @@ def check_perf():
             out = out + token_to_word[sym] + ' '
         print(out)
         out = ''
-        r = caption_model.predict(ex)
+        r = caption_model.predict(ex[0])
         #print(r)
         for i in range(max_caption_length - 1):
             sym = np.argmax(r[0][i])
             #print(sym, r[0][i][sym], token_to_word[sym])
             out = out + token_to_word[sym] + ' '
         print(out)
-        r = model.beam_search(caption_model, ex[0][0], max_caption_length, 0, stop_symbol, vocab_size, beam_width=5)
+        r = model.beam_search(caption_model, ex[0][0], token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=5)
         for entry in r[0:5]:
             print([token_to_word[t] for t in entry[1]])
         print('------------------------')
@@ -178,5 +178,5 @@ def check_perf():
 if __name__ == '__main__':
     #preprocess('blah_train', 'blah_test') 
     #make_vocab()
-    train()
-    #check_perf()
+    #train()
+    check_perf()
