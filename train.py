@@ -171,6 +171,8 @@ def check_perf():
         r = model.beam_search(caption_model, ex[0][0], token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=5)
         for entry in r[0:5]:
             print([token_to_word[t] for t in entry[1]])
+            print('log likelihood {:.2f}'.format(entry[0]))
+            print('BLEU score = {:.2f}'.format(data.bleu(data.gen_ngrams(entry[1], 4), [data.gen_ngrams([int(ex[1].numpy()[0][i]) for i in range(max_caption_length - 1)], 4)])))
         print('------------------------')
         #break
     
