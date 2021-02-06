@@ -1,5 +1,31 @@
 import tensorflow as tf
 import numpy as np
+
+def gen_ngrams(sentence, n):
+    ngrams = []
+    for i in range(len(sentence) - n + 1):
+        ngrams.append(sentence[i:(i + n)])
+    ngram_dict = {}
+    for ng in ngrams:
+        ng_key = " ".join(ng).lower()
+        if ng_key not in ngram_dict:
+            ngram_dict[ng_key] = 1
+        else:
+            ngram_dict[ng_key] += 1
+    return ngram_dict
+
+def bleu(candidate, references):
+    bleu_numerator = 0
+    bleu_denominator = 0
+    for ngram, count in candidate.items():
+        max_count = 0
+        for r in references:
+            if ngram in r:
+                max_count = max(max_count, r[ngram])
+        bleu_numerator += min(max_count, count)
+        bleu_denominator += count
+    return float(bleu_numerator)/bleu_denominator
+
 def build_annotations_vocab(fname):
     """ 
     Build an annotations vocabulary for the flickr8k dataset.
