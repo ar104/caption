@@ -121,11 +121,11 @@ def train():
     image_to_tokens = data.load_annotations_tokens('/datadrive/flickr8k/Flickr8k.image_to_tokens.txt', stop_symbol)
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
-    train_dataset = tf.data.Dataset.from_generator(ds_gen('blah_train_image', 'blah_train_caption', max_caption_length, stop_symbol, 32),
-                                                   output_types=(tf.float32, tf.int64), output_shapes=((32, 196, 512), (32, max_caption_length)))
+    train_dataset = tf.data.Dataset.from_generator(ds_gen('blah_train_image', 'blah_train_caption', max_caption_length, stop_symbol, 64),
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((64, 196, 512), (64, max_caption_length)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
-    val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol, 32),
-                                                   output_types=(tf.float32, tf.int64), output_shapes=((32, 196, 512), (32, max_caption_length)))
+    val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol, 64),
+                                                   output_types=(tf.float32, tf.int64), output_shapes=((64, 196, 512), (64, max_caption_length)))
                                                    #output_signature = (tf.TensorSpec(shape=(1, None), dtype=tf.float32), tf.TensorSpec(shape=(max_caption_length,))))
     train_dataset = train_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
     #for v in train_dataset:
@@ -134,8 +134,8 @@ def train():
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
     train_dataset = train_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
     val_dataset = val_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
-
-    caption_model.fit(train_dataset, epochs=200,
+    #caption_model.load_weights('caption_model.h5')
+    caption_model.fit(train_dataset, epochs=500,
                       callbacks = [tf.keras.callbacks.TensorBoard('./logs', update_freq=1),
                                    tf.keras.callbacks.ModelCheckpoint(filepath='caption_model.h5', monitor='val_loss', verbose=1, save_best_only=True)],
                       validation_data=val_dataset)

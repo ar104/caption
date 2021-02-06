@@ -139,7 +139,8 @@ def quick_test():
     test_input = [conv_features, token_array]
     test_output = token_array[:, 1:]
     model.fit(test_input, test_output, batch_size=2, epochs=500)
-    model.save('test_model.h5')
+    #model.save('test_model.h5')
+    #model.load_weights('test_model.h5')
     predict_output = model.predict(test_input, batch_size=2)
     display_results(token_array, predict_output, 0)
     print('--------')
@@ -148,12 +149,12 @@ def quick_test():
     r = beam_search(model, conv_features1, token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
     for entry in r[0:2]:
         print([token_to_word[t] for t in entry[1]])
-        print('BLEU score = %f'.format(gen_ngrams(entry[1], 4), [gen_ngrams([int(input_tokens[0][i])])]))
+        print('BLEU score = {:.2f}'.format(data.bleu(data.gen_ngrams(entry[1], 4), [data.gen_ngrams([int(token_array[0][i]) for i in range(token_array[0].shape[-1])], 4)])))
     print('--------')
     r = beam_search(model, conv_features2, token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=2)
     for entry in r[0:2]:
         print([token_to_word[t] for t in entry[1]])
-        print('BLEU score = %f'.format(gen_ngrams(entry[1], 4), [gen_ngrams([int(input_tokens[1][i])])]))
+        print('BLEU score = {:.2f}'.format(data.bleu(data.gen_ngrams(entry[1], 4), [data.gen_ngrams([int(token_array[1][i]) for i in range(token_array[1].shape[-1])], 4)])))
     
 if __name__ == '__main__':
     quick_test()

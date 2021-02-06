@@ -7,7 +7,7 @@ def gen_ngrams(sentence, n):
         ngrams.append(sentence[i:(i + n)])
     ngram_dict = {}
     for ng in ngrams:
-        ng_key = " ".join(ng).lower()
+        ng_key = " ".join([str(i) for i in ng]).lower()
         if ng_key not in ngram_dict:
             ngram_dict[ng_key] = 1
         else:
