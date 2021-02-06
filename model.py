@@ -32,7 +32,7 @@ def make_model(lstm_units, embedding_size, stop_symbol, max_caption_length, voca
         attention_scores = tf.keras.layers.Reshape(target_shape=(196,))(attention_scores)
         all_zeros = tf.zeros(shape=(1, 196), dtype=tf.float32)
         attention_scores = tf.where(tf.math.equal(token_inputs[:, i:i+1], tf.constant(stop_symbol, dtype=tf.float32)), all_zeros, attention_scores)
-        beta = beta_computations(attention_scores)
+        beta = beta_computation(attention_scores)
         attention_scores = tf.math.multiply(beta, attention_scores)
         attention_scores_list.append(attention_scores)
         token_input = input_embedding(token_inputs[:, i:i+1])
@@ -56,7 +56,7 @@ def make_model(lstm_units, embedding_size, stop_symbol, max_caption_length, voca
     masked_output_array = tf.where(mask_array, stop_array, output_array)
     final_model = tf.keras.Model(inputs=[conv_features, token_inputs], outputs=masked_output_array)
     final_model.add_loss(tf.reduce_sum(stochastic_loss))
-    final_model.compile(optimizer='RMSprop', loss='sparse_categorical_crossentropy')
+    final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
 
 def beam_search(model, image, token_to_word, max_caption_length, start_symbol, stop_symbol, vocab_size, beam_width):
