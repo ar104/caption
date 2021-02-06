@@ -24,7 +24,7 @@ def bleu(candidate, references):
                 max_count = max(max_count, r[ngram])
         bleu_numerator += min(max_count, count)
         bleu_denominator += count
-    return float(bleu_numerator)/bleu_denominator
+    return float(bleu_numerator)/bleu_denominator if bleu_denominator != 0 else 0.0
 
 def build_annotations_vocab(fname):
     """ 

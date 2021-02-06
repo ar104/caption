@@ -102,7 +102,7 @@ def beam_search(model, image, token_to_word, max_caption_length, start_symbol, s
         candidates = new_candidates
         length_increment = max([len(l[1]) for l in candidates.queue]) - max_candidate_length
         #print(candidates.queue)
-    results = [e for e in candidates.queue]
+    results = [(e[0], e[1][1:-1]) for e in candidates.queue] # Drop start and stop tokens.
     results.sort(reverse=True, key=lambda x:x[0])
     return results
     

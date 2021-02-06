@@ -152,7 +152,8 @@ def check_perf():
     val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol, 1),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((1, 196, 512), (1, max_caption_length)))
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
-    for ex in val_dataset:
+    
+    def eyeball(ex):
         #print(ex[1])
         out  = ''
         for i in range(max_caption_length - 1):
@@ -168,12 +169,18 @@ def check_perf():
             #print(sym, r[0][i][sym], token_to_word[sym])
             out = out + token_to_word[sym] + ' '
         print(out)
-        r = model.beam_search(caption_model, ex[0][0], token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=5)
+
+    def eyeball_beams(r):
         for entry in r[0:5]:
             print([token_to_word[t] for t in entry[1]])
             print('log likelihood {:.2f}'.format(entry[0]))
             print('BLEU score = {:.2f}'.format(data.bleu(data.gen_ngrams(entry[1], 4), [data.gen_ngrams([int(ex[1].numpy()[0][i]) for i in range(max_caption_length - 1)], 4)])))
         print('------------------------')
+
+    for ex in val_dataset:
+        eyeball(ex)
+        r = model.beam_search(caption_model, ex[0][0], token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=5)
+        eyeball_beams(r)
         #break
     
     
