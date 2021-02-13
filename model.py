@@ -59,6 +59,9 @@ def make_model(lstm_units, embedding_size, stop_symbol, max_caption_length, voca
     final_model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy')
     return final_model
 
+def make_attention_model(caption_model):
+    return tf.keras.Model(inputs=caption_model.input, outputs=caption_model.get_layer('add_29').input)
+
 def beam_search(model, image, token_to_word, max_caption_length, start_symbol, stop_symbol, vocab_size, beam_width):
     epsilon = 1E-19
     def update_candidate(q, candidate, added_symbol, candidate_prob):

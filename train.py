@@ -3,7 +3,7 @@ from tensorflow.python.client import device_lib
 import numpy as np
 import model
 import data
-
+import datetime
 
 def make_vocab():
     vocab, image_to_tokens = data.build_annotations_vocab('/home/aroy/notebooks/experiments/Flickr8k_text/Flickr8k.token.txt')
@@ -134,8 +134,8 @@ def train():
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
     train_dataset = train_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
     val_dataset = val_dataset.apply(tf.data.experimental.prefetch_to_device('/gpu:0'))
-    #caption_model.load_weights('caption_model.h5')
-    caption_model.fit(train_dataset, epochs=500,
+    caption_model.load_weights('caption_model.h5')
+    caption_model.fit(train_dataset, epochs=200,
                       callbacks = [tf.keras.callbacks.TensorBoard('./logs', update_freq=1),
                                    tf.keras.callbacks.ModelCheckpoint(filepath='caption_model.h5', monitor='val_loss', verbose=1, save_best_only=True)],
                       validation_data=val_dataset)
@@ -149,6 +149,7 @@ def check_perf():
     max_caption_length=max([len(t) for t in image_to_tokens.values()])
     caption_model = model.make_model(1024, 100, stop_symbol, max_caption_length, vocab_size, dropout_rate=0.3)
     caption_model.load_weights('caption_model.h5')
+    attention_weights_model = model.make_attention_model(caption_model)
     val_dataset = tf.data.Dataset.from_generator(ds_gen('blah_test_image', 'blah_test_caption', max_caption_length, stop_symbol, 1),
                                                    output_types=(tf.float32, tf.int64), output_shapes=((1, 196, 512), (1, max_caption_length)))
     val_dataset = val_dataset.map(lambda *x: tuple([tuple([x[0], x[1]]), x[1][:, 1:]]))
@@ -169,6 +170,11 @@ def check_perf():
             #print(sym, r[0][i][sym], token_to_word[sym])
             out = out + token_to_word[sym] + ' '
         print(out)
+        attention_weights = attention_weights_model.predict(ex[0])
+        attention_locations = []
+        for attention in attention_weights:
+            attention_locations.append(np.argmax(attention))
+        print(attention_locations)
 
     def eyeball_beams(r):
         for entry in r[0:5]:
@@ -176,13 +182,20 @@ def check_perf():
             print('log likelihood {:.2f}'.format(entry[0]))
             print('BLEU score = {:.2f}'.format(data.bleu(data.gen_ngrams(entry[1], 4), [data.gen_ngrams([int(ex[1].numpy()[0][i]) for i in range(max_caption_length - 1)], 4)])))
         print('------------------------')
-
+    count = 0
+    sum_bleu_scores = 0.0
     for ex in val_dataset:
         eyeball(ex)
         r = model.beam_search(caption_model, ex[0][0], token_to_word, max_caption_length, 0, stop_symbol, vocab_size, beam_width=5)
         eyeball_beams(r)
-        #break
-    
+        bleu_score = data.bleu(data.gen_ngrams(r[0][1], 4), [data.gen_ngrams([int(ex[1].numpy()[0][i]) for i in range(max_caption_length - 1)], 4)])
+        sum_bleu_scores += bleu_score
+        count += 1
+        if count % 10 == 0:
+            print('{} count = {} avg bleu = {}'.format(datetime.datetime.now(), count, sum_bleu_scores/count))
+        #if count == 20:
+        #    break
+    print('Avg BLEU score = {:.2f}'.format(sum_bleu_scores/count))
     
 if __name__ == '__main__':
     #preprocess('blah_train', 'blah_test') 
